@@ -11,5 +11,5 @@ Each practical is implemented in **Python** and maintained as an individual prog
 | 01  | Breadth First Search (BFS) | `bfs.py` |
 
 
-A simple interface for viewing the programs and their outputs is also hosted [over here.](link)
+A simple interface for viewing the programs and their outputs is also hosted [over here.](https://aiml-lab.streamlit.app/)
 
