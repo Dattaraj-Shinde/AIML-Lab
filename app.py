@@ -39,6 +39,11 @@ PROGRAM_INFO = {
         "code": "DFS-02",
         "description": "Deep-dive graph traversal algorithm exploring as far as possible along each branch before backtracking.",
     },
+    "A-Star.py": {
+        "title": "A* Search Algorithm",
+        "code": "AST-03",
+        "description": "Informed search algorithm using heuristics to find the shortest path efficiently.",
+    },
 }
 
 # ============================================================
