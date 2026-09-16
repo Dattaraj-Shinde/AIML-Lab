@@ -31,19 +31,24 @@ ENROLLMENT_NO = "ADT24SOCB0343"
 PROGRAM_INFO = {
     "bfs.py": {
         "title": "Breadth First Search",
-        "code": "BFS-01",
+        "code": "BFS",
         "description": "Level-order graph traversal algorithm exploring nodes systematically layer by layer.",
     },
     "dfs.py": {
         "title": "Depth First Search",
-        "code": "DFS-02",
+        "code": "DFS",
         "description": "Deep-dive graph traversal algorithm exploring as far as possible along each branch before backtracking.",
     },
     "A-Star.py": {
         "title": "A* Search Algorithm",
-        "code": "AST-03",
+        "code": "AST",
         "description": "Informed search algorithm using heuristics to find the shortest path efficiently.",
     },
+    "Tic-Tac-Toe.py": {
+            "title": "Tic Tac Toe",
+            "code": "TTT",
+            "description": "Classic game of X and O where two players take turns marking spaces in a 3x3 grid.",
+        },
 }
 
 # ============================================================
