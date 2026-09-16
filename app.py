@@ -31,37 +31,60 @@ ENROLLMENT_NO = "ADT24SOCB0343"
 PROGRAM_INFO = {
     "bfs.py": {
         "title": "Breadth First Search",
-        "code": "BFS",
+        "code": "BFS-01",
         "description": "Level-order graph traversal algorithm exploring nodes systematically layer by layer.",
+        "interactive": False,
     },
     "dfs.py": {
         "title": "Depth First Search",
-        "code": "DFS",
+        "code": "DFS-02",
         "description": "Deep-dive graph traversal algorithm exploring as far as possible along each branch before backtracking.",
+        "interactive": False,
     },
     "A-Star.py": {
         "title": "A* Search Algorithm",
-        "code": "AST",
+        "code": "AST-03",
         "description": "Informed search algorithm using heuristics to find the shortest path efficiently.",
+        "interactive": False,
     },
     "Tic-Tac-Toe.py": {
             "title": "Tic Tac Toe",
-            "code": "TTT",
+            "code": "TTT-04",
             "description": "Classic game of X and O where two players take turns marking spaces in a 3x3 grid.",
+            "interactive": True,
         },
 }
 
 # ============================================================
 # Dynamic CSS (Dark & Light Mode Support)
 # ============================================================
-st.markdown(
+try:
+    active_theme = st.context.theme.type
+except Exception:
+    active_theme = "dark"
+
+if active_theme == "light":
+    theme_css = """
+    :root {
+        --bg-primary: #ffffff;
+        --bg-secondary: #f8fafc;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+        --border-color: #e2e8f0;
+        --card-bg: rgba(255, 255, 255, 0.8);
+        --code-bg: #f1f5f9;
+        --btn-bg: #0f172a;
+        --btn-text: #ffffff;
+        --dot-color: rgba(0,0,0,0.05);
+        --title-grad-start: #0f172a;
+        --title-grad-end: #64748b;
+        --shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+        --toast-bg: rgba(255, 255, 255, 0.95);
+        --toast-text: #0f172a;
+    }
     """
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-    
-    /* -----------------------------
-       Default Theme (Dark)
-    ----------------------------- */
+else:
+    theme_css = """
     :root {
         --bg-primary: #09090b;
         --bg-secondary: #000000;
@@ -79,30 +102,16 @@ st.markdown(
         --toast-bg: rgba(24, 24, 27, 0.9);
         --toast-text: #fafafa;
     }
+    """
 
-    /* -----------------------------
-       Light Theme Overrides
-    ----------------------------- */
-    @media (prefers-color-scheme: light) {
-        :root {
-            --bg-primary: #ffffff;
-            --bg-secondary: #f8fafc;
-            --text-main: #0f172a;
-            --text-muted: #64748b;
-            --border-color: #e2e8f0;
-            --card-bg: rgba(255, 255, 255, 0.8);
-            --code-bg: #f1f5f9;
-            --btn-bg: #0f172a;
-            --btn-text: #ffffff;
-            --dot-color: rgba(0,0,0,0.05);
-            --title-grad-start: #0f172a;
-            --title-grad-end: #64748b;
-            --shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
-            --toast-bg: rgba(255, 255, 255, 0.95);
-            --toast-text: #0f172a;
-        }
-    }
-
+st.markdown(
+    """
+    <style>
+    """
+    + theme_css
+    + """
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    
     /* -----------------------------
        Core Layout & Elements
     ----------------------------- */
@@ -453,20 +462,16 @@ components.html(
 # ============================================================
 @st.cache_data
 def get_program_info(filename: str):
-    if filename in PROGRAM_INFO:
-        return PROGRAM_INFO[filename]
-    
-    title = filename.replace(".py", "").replace("_", " ").replace("-", " ").title()
-    return {
-        "title": title,
-        "code": f"EXP-{title[:2].upper()}",
-        "description": "Python implementations of practical programs for the Artificial Intelligence & Machine Learning Lab at my university.",
-    }
+    return PROGRAM_INFO[filename]
 
 def fetch_files():
     try:
-        files = [f for f in ROOT_DIR.glob("*.py") if f.name != Path(__file__).name]
-        return sorted(files, key=lambda f: f.name.lower())
+        files = []
+        for filename in PROGRAM_INFO:
+            file_path = ROOT_DIR / filename
+            if file_path.is_file():
+                files.append(file_path)
+        return files
     except Exception:
         return []
 
@@ -540,19 +545,36 @@ if selected_file:
         pass
 
     # Terminal Output Execution block
-    try:
-        # Run the script and capture the output safely (with a timeout so it never hangs)
-        result = subprocess.run([sys.executable, str(selected_file)], capture_output=True, text=True, timeout=5)
-        output_data = result.stdout if result.returncode == 0 else result.stderr
-        
-        if not output_data.strip():
-            output_data = "Program executed successfully with no print outputs."
-            
-    except subprocess.TimeoutExpired:
-        output_data = "Execution stopped: Script timed out (Exceeded 5 seconds)."
-    except Exception as e:
-        output_data = f"Execution error: {str(e)}"
-        
+    if program.get("interactive", False):
+        output_data = (
+            "This program cannot be executed on the live web interface because "
+            "it requires interactive terminal input.\n\n"
+            "Please run it in your own IDE or Python compiler."
+        )
+    else:
+        try:
+            # Only explicitly registered programs reach this block.
+            # shell=False prevents shell command interpretation.
+            result = subprocess.run(
+                [sys.executable, str(selected_file)],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                shell=False,
+            )
+            output_data = result.stdout if result.returncode == 0 else result.stderr
+
+            if not output_data.strip():
+                output_data = "Program executed successfully with no print outputs."
+
+        except subprocess.TimeoutExpired:
+            output_data = (
+                "This program cannot be executed on the live web interface. "
+                "Please try it in your own IDE or Python compiler."
+            )
+        except Exception as e:
+            output_data = f"Execution error: {e}"
+
     escaped_output = html.escape(output_data)
 
     st.markdown(
