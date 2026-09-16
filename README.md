@@ -6,10 +6,11 @@ Each practical is implemented in **Python** and maintained as an individual prog
 
 ## Programs
 
-| No. | Program                    | File        |
-| --- | -------------------------- | ----------- |
-| 01  | Breadth First Search (BFS) | `bfs.py`    |
-| 02  | A* Algorithm               | `A-Star.py` |
+| No. | Program              | File             |
+| --- | -------------------- | ---------------  |
+| 01  | Breadth First Search | `bfs.py`         |
+| 02  | A* Algorithm         | `A-Star.py`      |
+| 03  | Tic Tac Toe          | `Tic-Tac-Toe.py` |
 
 
 A simple interface for viewing the programs and their outputs is also hosted [over here.](https://aiml-lab.streamlit.app/)
