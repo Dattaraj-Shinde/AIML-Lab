@@ -54,7 +54,20 @@ PROGRAM_INFO = {
             "code": "TTT-04",
             "description": "Classic game of X and O where two players take turns marking spaces in a 3x3 grid.",
             "interactive": True,
+    },
+    "Practical4.ipynb": {
+                "title": "Python Arthimetic Functions",
+                "code": "PRAC-04",
+                "description": "Basic arithmetic functions in Python.",
+                "interactive": True,
+    },
+    "Practical5.ipynb": {
+                    "title": "Python Libraries",
+                    "code": "PRAC-05",
+                    "description": "Basic Python libraries like NumPy, Pandas, and Scipy.",
+                    "interactive": True,
         },
+    
 }
 
 # ============================================================
@@ -356,6 +369,37 @@ st.markdown(
     }
 
     /* -----------------------------
+       Jupyter notebook cells
+    ----------------------------- */
+    .notebook-cell-heading {
+        display:flex; align-items:center; gap:10px; padding:10px 14px;
+        margin-top:1.25rem; background:var(--code-bg);
+        border:1px solid var(--border-color); border-bottom:0;
+        border-radius:12px 12px 0 0; color:var(--text-muted);
+        font-size:.78rem; font-weight:700; letter-spacing:.04em;
+    }
+    .notebook-cell-heading .terminal-dots,
+    .notebook-output-heading .terminal-dots { display:inline-flex; gap:5px; flex-shrink:0; }
+    .notebook-cell-heading .dot { display:inline-block; width:9px; height:9px; }
+    .notebook-cell-heading .cell-label { margin-left:4px; }
+    .notebook-output-heading {
+        display:flex; align-items:center; gap:10px; padding:9px 14px;
+        margin-top:.5rem; background:color-mix(in srgb,var(--code-bg) 92%,var(--text-main));
+        border:1px solid var(--border-color); border-bottom:0;
+        border-radius:10px 10px 0 0; color:var(--text-muted);
+        font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+    }
+    .notebook-output-heading .dot { display:inline-block; width:8px; height:8px; }
+    .notebook-output {
+        padding:14px 16px; margin-bottom:1rem; background:var(--code-bg);
+        color:var(--text-main); border:1px solid var(--border-color);
+        border-radius:0 0 10px 10px; font-family:'JetBrains Mono',monospace;
+        font-size:.86rem; line-height:1.65; white-space:pre-wrap;
+        overflow-wrap:anywhere; overflow-x:auto;
+    }
+    .notebook-output code { font-family:inherit; }
+
+    /* -----------------------------
        Buttons & Footer
     ----------------------------- */
     .btn-github {
@@ -566,23 +610,53 @@ if selected_file:
     notebook_displayed = selected_file.suffix.lower() == ".ipynb"
     notebook_error = None
 
+    def render_notebook_output(label, text_value):
+        """Render notebook text output in a matching Mac-style panel."""
+        if not text_value:
+            return
+        st.markdown(
+            f"""
+            <div class="notebook-output-heading">
+                <span class="terminal-dots">
+                    <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+                </span>
+                <span>{html.escape(label)}</span>
+            </div>
+            <div class="notebook-output"><code>{html.escape(str(text_value))}</code></div>
+            """,
+            unsafe_allow_html=True,
+        )
+
     if notebook_displayed:
         try:
             with open(selected_file, "r", encoding="utf-8") as file:
                 notebook_data = json.load(file)
 
-            for cell_index, cell in enumerate(notebook_data.get("cells", []), start=1):
+            cell_number = 0
+            for cell in notebook_data.get("cells", []):
                 cell_type = cell.get("cell_type", "")
-                source = cell.get("source", "")
-                if isinstance(source, list):
-                    source = "".join(source)
+                cell_source = cell.get("source", "")
+                if isinstance(cell_source, list):
+                    cell_source = "".join(cell_source)
 
                 if cell_type == "markdown":
-                    if source.strip():
-                        st.markdown(source)
+                    if cell_source.strip():
+                        st.markdown(cell_source)
                 elif cell_type == "code":
-                    st.markdown(f"**Cell {cell_index}**")
-                    st.code(source, language="python", line_numbers=True)
+                    cell_number += 1
+                    st.markdown(
+                        f"""
+                        <div class="notebook-cell-heading">
+                            <span class="terminal-dots">
+                                <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+                            </span>
+                            <span class="cell-label">Cell {cell_number}</span>
+                            <span>· Python</span>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                    st.code(cell_source or "# Empty code cell", language="python", line_numbers=True)
 
                     for output in cell.get("outputs", []):
                         output_type = output.get("output_type", "")
@@ -590,54 +664,46 @@ if selected_file:
                             text_output = output.get("text", "")
                             if isinstance(text_output, list):
                                 text_output = "".join(text_output)
-                            if text_output:
-                                st.text(text_output)
+                            render_notebook_output("Output", text_output)
                         elif output_type in {"execute_result", "display_data"}:
                             data = output.get("data", {})
                             plain_text = data.get("text/plain", "")
                             if isinstance(plain_text, list):
                                 plain_text = "".join(plain_text)
-                            if plain_text:
-                                st.text(plain_text)
+                            render_notebook_output("Output", plain_text)
 
-                            # Display saved PNG/JPEG outputs without executing notebook HTML or JavaScript.
-                            for image_mime in ("image/png", "image/jpeg"):
-                                image_data = data.get(image_mime)
+                            # Display saved images only; never execute notebook HTML/JavaScript.
+                            for mime in ("image/png", "image/jpeg"):
+                                image_data = data.get(mime)
                                 if image_data:
                                     if isinstance(image_data, list):
                                         image_data = "".join(image_data)
                                     try:
                                         st.image(base64.b64decode(image_data))
-                                    except Exception:
+                                    except (ValueError, TypeError):
                                         st.caption("A saved notebook image could not be displayed.")
                         elif output_type == "error":
                             traceback_lines = output.get("traceback", [])
                             if traceback_lines:
-                                st.code("\n".join(traceback_lines), language="text")
+                                render_notebook_output("Error", "\\n".join(traceback_lines))
 
         except (OSError, json.JSONDecodeError, TypeError) as e:
             notebook_error = f"Unable to read this notebook: {e}"
             st.error(notebook_error)
     else:
         try:
-            # Show source code, but only run explicitly registered Python programs.
             with open(selected_file, "r", encoding="utf-8") as file:
                 code_content = file.read()
             st.code(code_content, language="python", line_numbers=True)
         except (OSError, UnicodeDecodeError) as e:
             st.error(f"Unable to read this file: {e}")
 
-    # Terminal Output: notebooks and interactive/unregistered scripts are not executed online.
+    # Notebooks show their saved outputs beside their cells; they are never executed online.
     if notebook_displayed:
-        output_data = (
-            "Jupyter Notebook\n\n"
-            "The notebook's saved outputs are shown with its cells above. "
-            "Notebook cells are not executed on this live website. "
-            "Open the notebook in Jupyter Notebook or Google Colab to run it."
-        )
+        output_data = None
     elif program.get("interactive", False) or selected_file.name not in PROGRAM_INFO:
         output_data = (
-            "This program cannot be executed on the live web interface.\n\n"
+            "This program cannot be executed on the live web interface.\\n\\n"
             "Please run it in your own IDE or Python compiler."
         )
     else:
@@ -661,26 +727,26 @@ if selected_file:
         except Exception as e:
             output_data = f"Execution error: {e}"
 
-    escaped_output = html.escape(output_data)
-
-    st.markdown(
-        f"""
-            <div class="terminal-wrapper">
-                <div class="terminal-header">
-                    <div class="terminal-dots">
-                        <span class="dot red"></span>
-                        <span class="dot yellow"></span>
-                        <span class="dot green"></span>
+    if output_data is not None:
+        escaped_output = html.escape(output_data)
+        st.markdown(
+            f"""
+                <div class="terminal-wrapper">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <span class="dot red"></span>
+                            <span class="dot yellow"></span>
+                            <span class="dot green"></span>
+                        </div>
+                        <div class="terminal-title">Live Output</div>
                     </div>
-                    <div class="terminal-title">Live Output</div>
+                    <div class="terminal-body">
+                        <pre><code>{escaped_output}</code></pre>
+                    </div>
                 </div>
-                <div class="terminal-body">
-                    <pre><code>{escaped_output}</code></pre>
-                </div>
-            </div>
-        """,
-        unsafe_allow_html=True,
-    )
+            """,
+            unsafe_allow_html=True,
+        )
 
     # GitHub Button
     github_url = f"https://github.com/Dattaraj-Shinde/AIML-Lab/blob/main/{selected_file.name}"
