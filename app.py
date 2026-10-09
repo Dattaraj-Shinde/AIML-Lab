@@ -2,6 +2,8 @@ import sys
 import asyncio
 import subprocess
 import html
+import json
+import base64
 from pathlib import Path
 
 # Prevent Windows asyncio ConnectionResetError (WinError 10054)
@@ -462,16 +464,40 @@ components.html(
 # ============================================================
 @st.cache_data
 def get_program_info(filename: str):
-    return PROGRAM_INFO[filename]
+    """Return display metadata for known Python programs and notebooks."""
+    if filename in PROGRAM_INFO:
+        return PROGRAM_INFO[filename]
+
+    file_path = ROOT_DIR / filename
+    if file_path.suffix.lower() == ".ipynb":
+        title = file_path.stem.replace("_", " ").replace("-", " ").title()
+        return {
+            "title": title,
+            "code": "NOTEBOOK",
+            "description": "Jupyter Notebook containing code cells and saved outputs.",
+            "interactive": True,
+            "notebook": True,
+        }
+
+    # Do not expose unregistered Python files as executable experiments.
+    title = file_path.stem.replace("_", " ").replace("-", " ").title()
+    return {
+        "title": title,
+        "code": "UNREGISTERED",
+        "description": "Python practical file.",
+        "interactive": True,
+        "notebook": False,
+    }
 
 def fetch_files():
     try:
-        files = []
-        for filename in PROGRAM_INFO:
-            file_path = ROOT_DIR / filename
-            if file_path.is_file():
-                files.append(file_path)
-        return files
+        files = [
+            f for f in ROOT_DIR.iterdir()
+            if f.is_file()
+            and f.suffix.lower() in {".py", ".ipynb"}
+            and f.name != Path(__file__).name
+        ]
+        return sorted(files, key=lambda f: f.name.lower())
     except Exception:
         return []
 
@@ -536,37 +562,97 @@ if selected_file:
         unsafe_allow_html=True,
     )
 
-    # Python Code Block
-    try:
-        with open(selected_file, "r", encoding="utf-8") as file:
-            code_content = file.read()
-        st.code(code_content, language="python", line_numbers=True)
-    except Exception:
-        pass
+    # Display Python source or render Jupyter notebook cells and saved outputs.
+    notebook_displayed = selected_file.suffix.lower() == ".ipynb"
+    notebook_error = None
 
-    # Terminal Output Execution block
-    if program.get("interactive", False):
+    if notebook_displayed:
+        try:
+            with open(selected_file, "r", encoding="utf-8") as file:
+                notebook_data = json.load(file)
+
+            for cell_index, cell in enumerate(notebook_data.get("cells", []), start=1):
+                cell_type = cell.get("cell_type", "")
+                source = cell.get("source", "")
+                if isinstance(source, list):
+                    source = "".join(source)
+
+                if cell_type == "markdown":
+                    if source.strip():
+                        st.markdown(source)
+                elif cell_type == "code":
+                    st.markdown(f"**Cell {cell_index}**")
+                    st.code(source, language="python", line_numbers=True)
+
+                    for output in cell.get("outputs", []):
+                        output_type = output.get("output_type", "")
+                        if output_type == "stream":
+                            text_output = output.get("text", "")
+                            if isinstance(text_output, list):
+                                text_output = "".join(text_output)
+                            if text_output:
+                                st.text(text_output)
+                        elif output_type in {"execute_result", "display_data"}:
+                            data = output.get("data", {})
+                            plain_text = data.get("text/plain", "")
+                            if isinstance(plain_text, list):
+                                plain_text = "".join(plain_text)
+                            if plain_text:
+                                st.text(plain_text)
+
+                            # Display saved PNG/JPEG outputs without executing notebook HTML or JavaScript.
+                            for image_mime in ("image/png", "image/jpeg"):
+                                image_data = data.get(image_mime)
+                                if image_data:
+                                    if isinstance(image_data, list):
+                                        image_data = "".join(image_data)
+                                    try:
+                                        st.image(base64.b64decode(image_data))
+                                    except Exception:
+                                        st.caption("A saved notebook image could not be displayed.")
+                        elif output_type == "error":
+                            traceback_lines = output.get("traceback", [])
+                            if traceback_lines:
+                                st.code("\n".join(traceback_lines), language="text")
+
+        except (OSError, json.JSONDecodeError, TypeError) as e:
+            notebook_error = f"Unable to read this notebook: {e}"
+            st.error(notebook_error)
+    else:
+        try:
+            # Show source code, but only run explicitly registered Python programs.
+            with open(selected_file, "r", encoding="utf-8") as file:
+                code_content = file.read()
+            st.code(code_content, language="python", line_numbers=True)
+        except (OSError, UnicodeDecodeError) as e:
+            st.error(f"Unable to read this file: {e}")
+
+    # Terminal Output: notebooks and interactive/unregistered scripts are not executed online.
+    if notebook_displayed:
         output_data = (
-            "This program cannot be executed on the live web interface because "
-            "it requires interactive terminal input.\n\n"
+            "Jupyter Notebook\n\n"
+            "The notebook's saved outputs are shown with its cells above. "
+            "Notebook cells are not executed on this live website. "
+            "Open the notebook in Jupyter Notebook or Google Colab to run it."
+        )
+    elif program.get("interactive", False) or selected_file.name not in PROGRAM_INFO:
+        output_data = (
+            "This program cannot be executed on the live web interface.\n\n"
             "Please run it in your own IDE or Python compiler."
         )
     else:
         try:
-            # Only explicitly registered programs reach this block.
-            # shell=False prevents shell command interpretation.
             result = subprocess.run(
-                [sys.executable, str(selected_file)],
+                [sys.executable, str(selected_file.resolve())],
                 capture_output=True,
                 text=True,
                 timeout=5,
                 shell=False,
+                cwd=str(ROOT_DIR),
             )
             output_data = result.stdout if result.returncode == 0 else result.stderr
-
             if not output_data.strip():
                 output_data = "Program executed successfully with no print outputs."
-
         except subprocess.TimeoutExpired:
             output_data = (
                 "This program cannot be executed on the live web interface. "
